@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.2.0
+# Version: 1.2.1
 
-SCRIPT_VERSION="1.2.0"
+SCRIPT_VERSION="1.2.1"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -246,9 +246,9 @@ while true; do
         echo "     FOR INSERT WITH CHECK (true);"
         echo "   ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;"
         echo ""
-        print_status "📱 This script will wait for you to complete these steps."
-        echo "Press Enter when you have your Supabase credentials ready, or Ctrl+C to exit..."
-        read -r
+        print_status "📱 Take your time to complete these steps."
+        echo "When finished, come back here and the script will ask again."
+        echo ""
     fi
 done
 
