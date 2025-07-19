@@ -66,7 +66,7 @@ if ! git remote get-url origin >/dev/null 2>&1; then
     echo ""
     echo "Steps to create GitHub repository:"
     echo "1. Go to https://github.com/new"
-    echo "2. Create a repository named 'claude-to-go-pwa'"
+    echo "2. Create a repository named 'claudetogo-pwa'"
     echo "3. Copy the repository URL"
     echo ""
     

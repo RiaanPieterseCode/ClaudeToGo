@@ -118,7 +118,7 @@ nvm use 20
 2. **Create New Project**
    - Click "New Project"
    - Choose organization (create if needed)
-   - Name: `claude-to-go`
+   - Name: `claudetogo-notifications`
    - Database Password: Generate strong password (save it!)
    - Region: Choose closest to your location
    - Click "Create new project"
@@ -184,14 +184,14 @@ npm install -D vite @vitejs/plugin-react vite-plugin-pwa workbox-window
 ### Step 4: Deploy to Netlify
 
 1. **Push to GitHub**
-   - Create a new repository on GitHub: `claude-to-go-pwa`
+   - Create a new repository on GitHub: `claudetogo-pwa`
    - Push your PWA code to the repository
 
 2. **Deploy on Netlify**
    - Go to [netlify.com](https://netlify.com) and sign up/login
    - Click "Add new site" → "Import an existing project"
    - Choose "Deploy with GitHub"
-   - Select your `claude-to-go-pwa` repository
+   - Select your `claudetogo-pwa` repository
    - Build settings:
      - Build command: `npm run build`
      - Publish directory: `dist`

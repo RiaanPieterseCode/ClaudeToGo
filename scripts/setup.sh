@@ -195,18 +195,23 @@ echo "2. Supabase Anon Key"
 echo "3. Supabase Service Role Key"
 echo ""
 
-read -p "Have you created your Supabase project? (y/N): " -r
-if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-    echo ""
-    print_warning "Please create your Supabase project first:"
-    echo "1. Go to https://supabase.com"
-    echo "2. Create a new project"
-    echo "3. Run the SQL schema from the README.md"
-    echo "4. Get your project URL and API keys"
-    echo ""
-    print_error "Re-run this script after setting up Supabase."
-    exit 1
-fi
+while true; do
+    read -p "Have you created your Supabase project? (y/N): " -r
+    if [[ $REPLY =~ ^[Yy]$ ]]; then
+        break
+    else
+        echo ""
+        print_warning "Please create your Supabase project first:"
+        echo "1. Go to https://supabase.com"
+        echo "2. Create a new project named 'claudetogo-notifications'"
+        echo "3. Run the SQL schema from the README.md"
+        echo "4. Get your project URL and API keys"
+        echo ""
+        print_status "Take your time - this script will wait for you to complete the setup."
+        echo "Press Enter when you're ready to continue, or Ctrl+C to exit..."
+        read -r
+    fi
+done
 
 echo ""
 echo "Enter your Supabase configuration:"
