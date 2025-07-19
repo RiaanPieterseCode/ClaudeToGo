@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.2.2
+# Version: 1.2.3
 
-SCRIPT_VERSION="1.2.2"
+SCRIPT_VERSION="1.2.3"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -247,8 +247,8 @@ while true; do
         echo "   ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;"
         echo ""
         print_status "📱 Take your time to complete these steps."
-        echo "When finished, come back here and answer 'y' to continue."
-        echo ""
+        echo "When finished, come back here and press Enter to continue..."
+        read -r
     fi
 done
 
