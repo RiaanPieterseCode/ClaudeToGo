@@ -2,8 +2,21 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
+# Version: 1.2.0
 
+SCRIPT_VERSION="1.2.0"
 set -e  # Exit on any error
+
+# Error handler that shows version on failure
+error_exit() {
+    echo ""
+    echo -e "${RED}[ERROR]${NC} Script failed (ClaudeToGo Setup v$SCRIPT_VERSION)"
+    echo "Please check the error above and try again."
+    exit 1
+}
+
+# Set trap to call error_exit on any error
+trap error_exit ERR
 
 # Colors for output
 RED='\033[0;31m'
@@ -64,7 +77,7 @@ validate_url() {
     fi
 }
 
-print_header "ClaudeToGo Setup"
+print_header "ClaudeToGo Setup v$SCRIPT_VERSION"
 echo "This script will help you set up ClaudeToGo mobile notifications for Claude Code."
 echo "You'll need accounts with Supabase and Netlify (both have free tiers)."
 echo ""

@@ -53,9 +53,20 @@ Linux Laptop (Claude Code) → Supabase API → PWA (Netlify) → Mobile Device 
 
 ClaudeToGo is fully implemented and ready for deployment. The repository contains:
 - Complete PWA template with React and Supabase integration
-- Automated setup scripts for Linux systems
+- Automated setup scripts for Linux systems (versioned for tracking)
 - Comprehensive documentation and troubleshooting guides
 - Production-ready deployment automation
+
+## Script Versioning
+
+All scripts include version numbers for tracking changes:
+- `scripts/setup.sh` - Main setup script (current: v1.2.0)
+- `scripts/deploy-to-netlify.sh` - Deployment helper (current: v1.1.0)
+
+**When making changes to scripts:**
+1. Update the version number in the script header comment
+2. Update the `SCRIPT_VERSION` variable
+3. The version will be displayed when users run the script
 
 ## Security Considerations
 

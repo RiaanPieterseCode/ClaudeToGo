@@ -2,8 +2,21 @@
 
 # Deploy ClaudeToGo PWA to Netlify
 # This script helps automate the deployment process
+# Version: 1.1.0
 
+SCRIPT_VERSION="1.1.0"
 set -e
+
+# Error handler that shows version on failure
+error_exit() {
+    echo ""
+    echo -e "${RED}[ERROR]${NC} Script failed (ClaudeToGo Deploy v$SCRIPT_VERSION)"
+    echo "Please check the error above and try again."
+    exit 1
+}
+
+# Set trap to call error_exit on any error
+trap error_exit ERR
 
 # Colors for output
 RED='\033[0;31m'
@@ -42,7 +55,7 @@ get_input() {
     fi
 }
 
-echo "🚀 ClaudeToGo - Netlify Deployment Helper"
+echo "🚀 ClaudeToGo - Netlify Deployment Helper v$SCRIPT_VERSION"
 echo ""
 
 # Check if we're in a PWA project directory
