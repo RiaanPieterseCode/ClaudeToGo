@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.2.3
+# Version: 1.3.0
 
-SCRIPT_VERSION="1.2.3"
+SCRIPT_VERSION="1.3.0"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -75,6 +75,105 @@ validate_url() {
     else
         return 1
     fi
+}
+
+# Function to display Supabase setup instructions
+show_supabase_instructions() {
+    echo ""
+    print_warning "Please create your Supabase project first:"
+    echo ""
+    echo "📋 DETAILED SETUP STEPS:"
+    echo "1. 🌐 Go to https://supabase.com and sign up/login"
+    echo "2. 🆕 Click 'New Project' → Choose organization"
+    echo "3. 📝 Name: 'claudetogo-notifications'"
+    echo "4. 🔐 Generate strong database password (save it!)"
+    echo "5. 📍 Choose region closest to you → Click 'Create new project'"
+    echo "6. ⏳ Wait for project creation (takes 1-2 minutes)"
+    echo "7. 🔧 Go to Settings → API → Copy your:"
+    echo "   • Project URL (starts with https://...supabase.co)"
+    echo "   • anon public key"
+    echo "   • service_role key (keep secret!)"
+    echo "8. 📊 Go to SQL Editor → Run this SQL schema:"
+    echo ""
+    echo "   CREATE TABLE public.notifications ("
+    echo "     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,"
+    echo "     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,"
+    echo "     title text NOT NULL,"
+    echo "     message text NOT NULL,"
+    echo "     event_type text NOT NULL DEFAULT 'notification',"
+    echo "     metadata jsonb DEFAULT '{}',"
+    echo "     read boolean DEFAULT false,"
+    echo "     created_at timestamptz DEFAULT now()"
+    echo "   );"
+    echo "   ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;"
+    echo "   CREATE POLICY \"Users can view own notifications\" ON public.notifications"
+    echo "     FOR SELECT USING (auth.uid() = user_id);"
+    echo "   CREATE POLICY \"Service can insert notifications\" ON public.notifications"
+    echo "     FOR INSERT WITH CHECK (true);"
+    echo "   ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;"
+    echo ""
+}
+
+# Function to test Supabase connection and setup
+test_supabase_connection() {
+    local url="$1"
+    local key="$2"
+    
+    print_status "Testing Supabase connection..."
+    
+    # Test basic API connectivity
+    if ! curl -s -f "$url/rest/v1/" -H "apikey: $key" -H "Authorization: Bearer $key" >/dev/null 2>&1; then
+        print_error "Cannot connect to Supabase API. Check your URL and service key."
+        return 1
+    fi
+    
+    # Test if notifications table exists and is accessible
+    if ! curl -s -f "$url/rest/v1/notifications?limit=1" -H "apikey: $key" -H "Authorization: Bearer $key" >/dev/null 2>&1; then
+        print_error "Notifications table not found or not accessible. Please check your SQL schema."
+        return 2
+    fi
+    
+    print_success "Supabase connection successful!"
+    return 0
+}
+
+# Function to handle complete Supabase setup
+setup_supabase_project() {
+    # Ask user if they've completed setup
+    read -p "Have you created your Supabase project? (y/N): " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        show_supabase_instructions
+        return 1
+    fi
+    
+    # Get Supabase credentials
+    echo ""
+    echo "Enter your Supabase configuration:"
+    
+    while true; do
+        SUPABASE_URL=$(get_input "Supabase Project URL")
+        if validate_url "$SUPABASE_URL"; then
+            break
+        else
+            print_error "Invalid URL format. Please enter a valid HTTPS URL."
+        fi
+    done
+    
+    SUPABASE_ANON_KEY=$(get_input "Supabase Anon Key")
+    SUPABASE_SERVICE_KEY=$(get_input "Supabase Service Role Key")
+    
+    # Test the connection
+    if ! test_supabase_connection "$SUPABASE_URL" "$SUPABASE_SERVICE_KEY"; then
+        echo ""
+        read -p "Would you like to see the setup instructions again? (y/N): " -r
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            show_supabase_instructions
+        fi
+        return 1
+    fi
+    
+    # If we get here, everything worked
+    return 0
 }
 
 print_header "ClaudeToGo Setup v$SCRIPT_VERSION"
@@ -208,65 +307,16 @@ echo "2. Supabase Anon Key"
 echo "3. Supabase Service Role Key"
 echo ""
 
-while true; do
-    read -p "Have you created your Supabase project? (y/N): " -r
-    if [[ $REPLY =~ ^[Yy]$ ]]; then
-        break
-    else
-        echo ""
-        print_warning "Please create your Supabase project first:"
-        echo ""
-        echo "📋 DETAILED SETUP STEPS:"
-        echo "1. 🌐 Go to https://supabase.com and sign up/login"
-        echo "2. 🆕 Click 'New Project' → Choose organization"
-        echo "3. 📝 Name: 'claudetogo-notifications'"
-        echo "4. 🔐 Generate strong database password (save it!)"
-        echo "5. 📍 Choose region closest to you → Click 'Create new project'"
-        echo "6. ⏳ Wait for project creation (takes 1-2 minutes)"
-        echo "7. 🔧 Go to Settings → API → Copy your:"
-        echo "   • Project URL (starts with https://...supabase.co)"
-        echo "   • anon public key"
-        echo "   • service_role key (keep secret!)"
-        echo "8. 📊 Go to SQL Editor → Run this SQL schema:"
-        echo ""
-        echo "   CREATE TABLE public.notifications ("
-        echo "     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,"
-        echo "     user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,"
-        echo "     title text NOT NULL,"
-        echo "     message text NOT NULL,"
-        echo "     event_type text NOT NULL DEFAULT 'notification',"
-        echo "     metadata jsonb DEFAULT '{}',"
-        echo "     read boolean DEFAULT false,"
-        echo "     created_at timestamptz DEFAULT now()"
-        echo "   );"
-        echo "   ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;"
-        echo "   CREATE POLICY \"Users can view own notifications\" ON public.notifications"
-        echo "     FOR SELECT USING (auth.uid() = user_id);"
-        echo "   CREATE POLICY \"Service can insert notifications\" ON public.notifications"
-        echo "     FOR INSERT WITH CHECK (true);"
-        echo "   ALTER PUBLICATION supabase_realtime ADD TABLE public.notifications;"
-        echo ""
-        print_status "📱 Take your time to complete these steps."
-        echo "When finished, come back here and press Enter to continue..."
-        read -r
+# Use the new function-based approach with validation
+while ! setup_supabase_project; do
+    echo ""
+    print_warning "Supabase setup incomplete or connection failed."
+    read -p "Would you like to try again? (y/N): " -r
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        print_error "Setup cancelled. Supabase is required to continue."
+        exit 1
     fi
 done
-
-echo ""
-echo "Enter your Supabase configuration:"
-
-# Get Supabase configuration
-while true; do
-    SUPABASE_URL=$(get_input "Supabase Project URL")
-    if validate_url "$SUPABASE_URL"; then
-        break
-    else
-        print_error "Invalid URL format. Please enter a valid HTTPS URL."
-    fi
-done
-
-SUPABASE_ANON_KEY=$(get_input "Supabase Anon Key")
-SUPABASE_SERVICE_KEY=$(get_input "Supabase Service Role Key")
 
 # Create environment file
 cat > .env << EOF

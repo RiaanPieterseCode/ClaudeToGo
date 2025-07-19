@@ -60,7 +60,7 @@ ClaudeToGo is fully implemented and ready for deployment. The repository contain
 ## Script Versioning
 
 All scripts include version numbers for tracking changes:
-- `scripts/setup.sh` - Main setup script (current: v1.2.1)
+- `scripts/setup.sh` - Main setup script (current: v1.3.0)
 - `scripts/deploy-to-netlify.sh` - Deployment helper (current: v1.1.0)
 
 **When making changes to scripts:**
