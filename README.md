@@ -59,7 +59,7 @@ A real-time notification system that sends push notifications to your mobile dev
 ```bash
 # ⚠️ ONLY run this in an isolated test environment
 # NEVER on your main development machine
-curl -fsSL https://raw.githubusercontent.com/yourusername/claude-to-go/main/scripts/setup.sh | bash
+curl -fsSL https://raw.githubusercontent.com/RiaanPieterseCode/ClaudeToGo/main/scripts/setup.sh | bash
 ```
 
 **STRONGLY RECOMMENDED**: Follow the manual setup below for full control and safety.
