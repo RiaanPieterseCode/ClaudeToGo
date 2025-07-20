@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.4.0
+# Version: 1.5.0
 
-SCRIPT_VERSION="1.4.0"
+SCRIPT_VERSION="1.5.0"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -75,6 +75,56 @@ validate_url() {
     else
         return 1
     fi
+}
+
+# Function to get validated URL input (max 5 attempts)
+get_validated_url() {
+    local prompt="$1"
+    local attempts=0
+    local max_attempts=5
+    local url
+    
+    for ((attempts=1; attempts<=max_attempts; attempts++)); do
+        url=$(get_input "$prompt")
+        if validate_url "$url"; then
+            echo "$url"
+            return 0
+        else
+            print_error "Invalid URL format. Please enter a valid HTTPS URL."
+            if [ $attempts -eq $max_attempts ]; then
+                print_error "Maximum attempts ($max_attempts) reached. Setup cancelled."
+                return 1
+            fi
+            print_status "Attempt $attempts/$max_attempts - Please try again."
+        fi
+    done
+    
+    return 1
+}
+
+# Function to get menu choice with validation (max 10 attempts)
+get_menu_choice() {
+    local prompt="$1"
+    local valid_choices="$2"  # e.g., "123" for choices 1, 2, 3
+    local attempts=0
+    local max_attempts=10
+    local choice
+    
+    for ((attempts=1; attempts<=max_attempts; attempts++)); do
+        read -p "$prompt" choice
+        if [[ "$valid_choices" == *"$choice"* ]] && [ ${#choice} -eq 1 ]; then
+            echo "$choice"
+            return 0
+        else
+            print_error "Invalid choice. Please enter one of: $(echo "$valid_choices" | fold -w1 | tr '\n' ',' | sed 's/,$//' | sed 's/,/, /g')"
+            if [ $attempts -eq $max_attempts ]; then
+                print_error "Maximum attempts ($max_attempts) reached. Setup cancelled."
+                return 1
+            fi
+        fi
+    done
+    
+    return 1
 }
 
 # Function to display Supabase setup instructions
@@ -267,33 +317,34 @@ handle_existing_directory() {
     echo "3) Cancel setup"
     echo ""
     
-    while true; do
-        read -p "Enter your choice (1/2/3): " choice
-        case $choice in
-            1)
-                print_status "Deleting directory $dir..."
-                rm -rf "$dir"
-                return 0  # Continue with fresh setup
-                ;;
-            2)
-                if [ $current_step -eq 0 ]; then
-                    print_warning "No previous progress detected. Starting from beginning."
-                else
-                    print_status "Continuing from Step $((current_step + 1))..."
-                fi
-                cd "$dir"
-                export CONTINUE_FROM_STEP=$((current_step + 1))
-                return 0  # Continue existing setup
-                ;;
-            3)
-                print_error "Setup cancelled."
-                exit 1
-                ;;
-            *)
-                print_error "Invalid choice. Please enter 1, 2, or 3."
-                ;;
-        esac
-    done
+    # Get user choice with validation
+    choice=$(get_menu_choice "Enter your choice (1/2/3): " "123")
+    if [ $? -ne 0 ]; then
+        print_error "Setup cancelled due to invalid input."
+        exit 1
+    fi
+    
+    case $choice in
+        1)
+            print_status "Deleting directory $dir..."
+            rm -rf "$dir"
+            return 0  # Continue with fresh setup
+            ;;
+        2)
+            if [ $current_step -eq 0 ]; then
+                print_warning "No previous progress detected. Starting from beginning."
+            else
+                print_status "Continuing from Step $((current_step + 1))..."
+            fi
+            cd "$dir"
+            export CONTINUE_FROM_STEP=$((current_step + 1))
+            return 0  # Continue existing setup
+            ;;
+        3)
+            print_error "Setup cancelled."
+            exit 1
+            ;;
+    esac
 }
 
 # Function to handle complete Supabase setup
@@ -309,14 +360,11 @@ setup_supabase_project() {
     echo ""
     echo "Enter your Supabase configuration:"
     
-    while true; do
-        SUPABASE_URL=$(get_input "Supabase Project URL")
-        if validate_url "$SUPABASE_URL"; then
-            break
-        else
-            print_error "Invalid URL format. Please enter a valid HTTPS URL."
-        fi
-    done
+    # Get validated Supabase URL (with retry limit)
+    SUPABASE_URL=$(get_validated_url "Supabase Project URL")
+    if [ $? -ne 0 ]; then
+        return 1  # Exit if URL validation failed after max attempts
+    fi
     
     SUPABASE_ANON_KEY=$(get_input "Supabase Anon Key")
     SUPABASE_SERVICE_KEY=$(get_input "Supabase Service Role Key")
