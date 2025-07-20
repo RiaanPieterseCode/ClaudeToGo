@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.3.0
+# Version: 1.4.0
 
-SCRIPT_VERSION="1.3.0"
+SCRIPT_VERSION="1.4.0"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -137,6 +137,165 @@ test_supabase_connection() {
     return 0
 }
 
+# Progress detection functions
+check_system_dependencies() {
+    if command_exists node && command_exists npm && command_exists git && command_exists curl; then
+        NODE_VERSION=$(node --version | cut -c2-)
+        NODE_MAJOR=$(echo $NODE_VERSION | cut -d. -f1)
+        if [ "$NODE_MAJOR" -ge 18 ]; then
+            return 0
+        fi
+    fi
+    return 1
+}
+
+check_pwa_template() {
+    if [ -f "package.json" ] && [ -d "node_modules" ] && [ -d "src" ]; then
+        return 0
+    fi
+    return 1
+}
+
+check_account_configuration() {
+    if [ -f ".env" ] && grep -q "VITE_SUPABASE_URL" .env && grep -q "VITE_SUPABASE_ANON_KEY" .env; then
+        return 0
+    fi
+    return 1
+}
+
+check_hooks_configuration() {
+    if [ -f "claude-hooks.json" ] && [ -f "setup-env.sh" ]; then
+        return 0
+    fi
+    return 1
+}
+
+# Function to detect current progress
+detect_progress() {
+    local step=0
+    
+    if check_system_dependencies; then
+        step=1
+    fi
+    
+    if [ -d "$PROJECT_DIR" ]; then
+        step=2
+        cd "$PROJECT_DIR"
+        
+        if check_pwa_template; then
+            step=3
+        fi
+        
+        if check_account_configuration; then
+            step=4
+        fi
+        
+        if check_hooks_configuration; then
+            step=5
+        fi
+    fi
+    
+    echo $step
+}
+
+# Function to show progress status
+show_progress_status() {
+    local current_step=$1
+    
+    echo ""
+    print_status "Detected setup progress:"
+    
+    if [ $current_step -ge 1 ]; then
+        echo "✅ Step 1: System Dependencies"
+    else
+        echo "❌ Step 1: System Dependencies"
+    fi
+    
+    if [ $current_step -ge 2 ]; then
+        echo "✅ Step 2: Project Directory"
+    else
+        echo "❌ Step 2: Project Directory"
+    fi
+    
+    if [ $current_step -ge 3 ]; then
+        echo "✅ Step 3: PWA Template"
+    else
+        echo "❌ Step 3: PWA Template"
+    fi
+    
+    if [ $current_step -ge 4 ]; then
+        echo "✅ Step 4: Account Configuration"
+    else
+        echo "❌ Step 4: Account Configuration"
+    fi
+    
+    if [ $current_step -ge 5 ]; then
+        echo "✅ Step 5: Hooks Configuration (COMPLETE!)"
+    else
+        echo "❌ Step 5: Hooks Configuration"
+    fi
+    
+    echo ""
+}
+
+# Function to handle existing directory
+handle_existing_directory() {
+    local dir="$1"
+    
+    print_warning "Directory $dir already exists."
+    
+    # Detect current progress
+    local current_step=$(detect_progress)
+    show_progress_status $current_step
+    
+    if [ $current_step -eq 5 ]; then
+        print_success "Setup appears to be already complete!"
+        echo "All components are installed and configured."
+        echo ""
+        read -p "Would you like to proceed anyway to reconfigure? (y/N): " -r
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            return 0  # Continue with setup
+        else
+            print_status "Setup skipped. Your existing installation is ready to use."
+            exit 0
+        fi
+    fi
+    
+    echo "Choose an option:"
+    echo "1) Delete directory and start fresh"
+    echo "2) Continue from where setup left off (Step $((current_step + 1)))"
+    echo "3) Cancel setup"
+    echo ""
+    
+    while true; do
+        read -p "Enter your choice (1/2/3): " choice
+        case $choice in
+            1)
+                print_status "Deleting directory $dir..."
+                rm -rf "$dir"
+                return 0  # Continue with fresh setup
+                ;;
+            2)
+                if [ $current_step -eq 0 ]; then
+                    print_warning "No previous progress detected. Starting from beginning."
+                else
+                    print_status "Continuing from Step $((current_step + 1))..."
+                fi
+                cd "$dir"
+                export CONTINUE_FROM_STEP=$((current_step + 1))
+                return 0  # Continue existing setup
+                ;;
+            3)
+                print_error "Setup cancelled."
+                exit 1
+                ;;
+            *)
+                print_error "Invalid choice. Please enter 1, 2, or 3."
+                ;;
+        esac
+    done
+}
+
 # Function to handle complete Supabase setup
 setup_supabase_project() {
     # Ask user if they've completed setup
@@ -199,75 +358,85 @@ if [ "$EUID" -eq 0 ]; then
     exit 1
 fi
 
-print_header "Step 1: Installing System Dependencies"
+# Initialize step tracking
+CONTINUE_FROM_STEP=${CONTINUE_FROM_STEP:-1}
 
-# Update package lists
-print_status "Updating package lists..."
-sudo apt update
+if [ ${CONTINUE_FROM_STEP:-1} -le 1 ]; then
+    print_header "Step 1: Installing System Dependencies"
 
-# Install curl if not present
-if ! command_exists curl; then
-    print_status "Installing curl..."
-    sudo apt install -y curl
-fi
+    # Update package lists
+    print_status "Updating package lists..."
+    sudo apt update
 
-# Install git if not present
-if ! command_exists git; then
-    print_status "Installing git..."
-    sudo apt install -y git
-fi
+    # Install curl if not present
+    if ! command_exists curl; then
+        print_status "Installing curl..."
+        sudo apt install -y curl
+    fi
 
-# Check Node.js version
-if command_exists node; then
-    NODE_VERSION=$(node --version | cut -c2-)
-    NODE_MAJOR=$(echo $NODE_VERSION | cut -d. -f1)
-    if [ "$NODE_MAJOR" -lt 18 ]; then
-        print_warning "Node.js $NODE_VERSION is too old. Installing Node.js 20 LTS..."
-        INSTALL_NODE=true
+    # Install git if not present
+    if ! command_exists git; then
+        print_status "Installing git..."
+        sudo apt install -y git
+    fi
+
+    # Check Node.js version
+    if command_exists node; then
+        NODE_VERSION=$(node --version | cut -c2-)
+        NODE_MAJOR=$(echo $NODE_VERSION | cut -d. -f1)
+        if [ "$NODE_MAJOR" -lt 18 ]; then
+            print_warning "Node.js $NODE_VERSION is too old. Installing Node.js 20 LTS..."
+            INSTALL_NODE=true
+        else
+            print_success "Node.js $NODE_VERSION is already installed and compatible."
+            INSTALL_NODE=false
+        fi
     else
-        print_success "Node.js $NODE_VERSION is already installed and compatible."
-        INSTALL_NODE=false
+        print_status "Node.js not found. Installing Node.js 20 LTS..."
+        INSTALL_NODE=true
+    fi
+
+    if [ "$INSTALL_NODE" = true ]; then
+        curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
+        sudo apt-get install -y nodejs
+        print_success "Node.js $(node --version) installed successfully."
     fi
 else
-    print_status "Node.js not found. Installing Node.js 20 LTS..."
-    INSTALL_NODE=true
+    print_status "⏭️  Skipping Step 1: System Dependencies (already completed)"
 fi
 
-if [ "$INSTALL_NODE" = true ]; then
-    curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-    sudo apt-get install -y nodejs
-    print_success "Node.js $(node --version) installed successfully."
-fi
+if [ ${CONTINUE_FROM_STEP:-1} -le 2 ]; then
+    print_header "Step 2: Creating Project Directory"
 
-print_header "Step 2: Creating Project Directory"
+    # Get project directory
+    PROJECT_DIR=$(get_input "Enter project directory path" "$HOME/claude-to-go")
 
-# Get project directory
-PROJECT_DIR=$(get_input "Enter project directory path" "$HOME/claude-to-go")
-
-# Create project directory
-if [ -d "$PROJECT_DIR" ]; then
-    print_warning "Directory $PROJECT_DIR already exists."
-    read -p "Continue and overwrite? (y/N): " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_error "Setup cancelled."
-        exit 1
+    # Handle existing directory with smart detection
+    if [ -d "$PROJECT_DIR" ]; then
+        handle_existing_directory "$PROJECT_DIR"
+    else
+        mkdir -p "$PROJECT_DIR"
+        cd "$PROJECT_DIR"
+        print_success "Created project directory: $PROJECT_DIR"
     fi
+else
+    print_status "⏭️  Skipping Step 2: Project Directory (already completed)"
+    # Still need to set PROJECT_DIR and cd into it
+    PROJECT_DIR=$(get_input "Enter project directory path" "$HOME/claude-to-go")
+    cd "$PROJECT_DIR"
 fi
 
-mkdir -p "$PROJECT_DIR"
-cd "$PROJECT_DIR"
-print_success "Created project directory: $PROJECT_DIR"
+if [ ${CONTINUE_FROM_STEP:-1} -le 3 ]; then
+    print_header "Step 3: Downloading PWA Template"
 
-print_header "Step 3: Downloading PWA Template"
+    # Download PWA template files
+    print_status "Downloading PWA template..."
 
-# Download PWA template files
-print_status "Downloading PWA template..."
+    # Create directory structure
+    mkdir -p src/components src/hooks src/utils public
 
-# Create directory structure
-mkdir -p src/components src/hooks src/utils public
-
-# Download template files (we'll create them in the next step)
-cat > package.json << 'EOF'
+    # Download template files (we'll create them in the next step)
+    cat > package.json << 'EOF'
 {
   "name": "claude-to-go-pwa",
   "version": "1.0.0",
@@ -292,42 +461,46 @@ cat > package.json << 'EOF'
 }
 EOF
 
-print_success "Created package.json"
+    print_success "Created package.json"
 
-# Install dependencies
-print_status "Installing NPM dependencies..."
-npm install
+    # Install dependencies
+    print_status "Installing NPM dependencies..."
+    npm install
+else
+    print_status "⏭️  Skipping Step 3: PWA Template (already completed)"
+fi
 
-print_header "Step 4: Account Configuration"
+if [ ${CONTINUE_FROM_STEP:-1} -le 4 ]; then
+    print_header "Step 4: Account Configuration"
 
-echo "Now you need to configure your Supabase and Netlify accounts."
-echo "Please have the following information ready:"
-echo "1. Supabase Project URL"
-echo "2. Supabase Anon Key"
-echo "3. Supabase Service Role Key"
-echo ""
-
-# Use the new function-based approach with validation
-while ! setup_supabase_project; do
+    echo "Now you need to configure your Supabase and Netlify accounts."
+    echo "Please have the following information ready:"
+    echo "1. Supabase Project URL"
+    echo "2. Supabase Anon Key"
+    echo "3. Supabase Service Role Key"
     echo ""
-    print_warning "Supabase setup incomplete or connection failed."
-    read -p "Would you like to try again? (y/N): " -r
-    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-        print_error "Setup cancelled. Supabase is required to continue."
-        exit 1
-    fi
-done
 
-# Create environment file
-cat > .env << EOF
+    # Use the new function-based approach with validation
+    while ! setup_supabase_project; do
+        echo ""
+        print_warning "Supabase setup incomplete or connection failed."
+        read -p "Would you like to try again? (y/N): " -r
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            print_error "Setup cancelled. Supabase is required to continue."
+            exit 1
+        fi
+    done
+
+    # Create environment file
+    cat > .env << EOF
 VITE_SUPABASE_URL=$SUPABASE_URL
 VITE_SUPABASE_ANON_KEY=$SUPABASE_ANON_KEY
 EOF
 
-print_success "Created .env file with Supabase configuration"
+    print_success "Created .env file with Supabase configuration"
 
-# Create environment setup script
-cat > setup-env.sh << EOF
+    # Create environment setup script
+    cat > setup-env.sh << EOF
 #!/bin/bash
 # Add these to your ~/.bashrc or ~/.zshrc
 
@@ -339,16 +512,20 @@ export CTG_USER_ID="your-user-id"  # Get this from the PWA after login
 echo "Environment variables configured for Claude Code hooks"
 EOF
 
-chmod +x setup-env.sh
+    chmod +x setup-env.sh
+else
+    print_status "⏭️  Skipping Step 4: Account Configuration (already completed)"
+fi
 
-print_header "Step 5: Claude Code Hooks Configuration"
+if [ ${CONTINUE_FROM_STEP:-1} -le 5 ]; then
+    print_header "Step 5: Claude Code Hooks Configuration"
 
-# Create Claude Code settings directory
-CLAUDE_CONFIG_DIR="$HOME/.config/claude-code"
-mkdir -p "$CLAUDE_CONFIG_DIR"
+    # Create Claude Code settings directory
+    CLAUDE_CONFIG_DIR="$HOME/.config/claude-code"
+    mkdir -p "$CLAUDE_CONFIG_DIR"
 
-# Create hooks configuration
-cat > claude-hooks.json << 'EOF'
+    # Create hooks configuration
+    cat > claude-hooks.json << 'EOF'
 {
   "hooks": {
     "Notification": [
@@ -377,7 +554,10 @@ cat > claude-hooks.json << 'EOF'
 }
 EOF
 
-print_success "Created Claude Code hooks configuration"
+    print_success "Created Claude Code hooks configuration"
+else
+    print_status "⏭️  Skipping Step 5: Hooks Configuration (already completed)"
+fi
 
 print_header "Setup Complete!"
 
