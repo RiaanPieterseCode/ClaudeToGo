@@ -2,9 +2,9 @@
 
 # ClaudeToGo - Automated Setup Script
 # For Debian/Ubuntu/Mint/PopOS systems
-# Version: 1.5.0
+# Version: 1.6.1
 
-SCRIPT_VERSION="1.5.0"
+SCRIPT_VERSION="1.6.1"
 set -e  # Exit on any error
 
 # Error handler that shows version on failure
@@ -358,7 +358,12 @@ setup_supabase_project() {
     
     # Get Supabase credentials
     echo ""
-    echo "Enter your Supabase configuration:"
+    print_status "Great! Now I need your Supabase project details:"
+    echo "Please have the following information ready from your Supabase dashboard:"
+    echo "  • Project URL (from Settings → API)"
+    echo "  • Anon (public) key (from Settings → API)"  
+    echo "  • Service role key (from Settings → API)"
+    echo ""
     
     # Get validated Supabase URL (with retry limit)
     SUPABASE_URL=$(get_validated_url "Supabase Project URL")
@@ -521,23 +526,43 @@ fi
 if [ ${CONTINUE_FROM_STEP:-1} -le 4 ]; then
     print_header "Step 4: Account Configuration"
 
-    echo "Now you need to configure your Supabase and Netlify accounts."
-    echo "Please have the following information ready:"
-    echo "1. Supabase Project URL"
-    echo "2. Supabase Anon Key"
-    echo "3. Supabase Service Role Key"
+    echo "Now let's configure your Supabase account for mobile notifications."
     echo ""
-
-    # Use the new function-based approach with validation
-    while ! setup_supabase_project; do
-        echo ""
-        print_warning "Supabase setup incomplete or connection failed."
-        read -p "Would you like to try again? (y/N): " -r
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_error "Setup cancelled. Supabase is required to continue."
-            exit 1
+    
+    # Use bounded retry approach for Supabase setup (max 3 attempts)
+    max_attempts=3
+    setup_success=false
+    
+    for ((attempt=1; attempt<=max_attempts; attempt++)); do
+        if [ $attempt -gt 1 ]; then
+            print_status "Supabase setup attempt $attempt/$max_attempts"
+        fi
+        
+        if setup_supabase_project; then
+            setup_success=true
+            break
+        else
+            echo ""
+            if [ $attempt -eq $max_attempts ]; then
+                print_error "Supabase setup failed after $max_attempts attempts."
+                print_error "Please check your configuration and try running the script again."
+                print_error "Setup cancelled. Supabase is required to continue."
+                exit 1
+            else
+                print_warning "Supabase setup incomplete or connection failed."
+                read -p "Would you like to try again? (y/N): " -r
+                if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                    print_error "Setup cancelled. Supabase is required to continue."
+                    exit 1
+                fi
+            fi
         fi
     done
+    
+    if [ "$setup_success" != "true" ]; then
+        print_error "Supabase setup failed. Cannot continue without proper Supabase configuration."
+        exit 1
+    fi
 
     # Create environment file
     cat > .env << EOF
